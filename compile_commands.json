@@ -1,0 +1,34 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-Iinclude",
+      "-o",
+      "render",
+      "src/main.c"
+    ],
+    "directory": "/home/arno/projects/c/openGL",
+    "file": "/home/arno/projects/c/openGL/src/main.c",
+    "output": "/home/arno/projects/c/openGL/render"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-Iinclude",
+      "-o",
+      "render",
+      "src/glad.c"
+    ],
+    "directory": "/home/arno/projects/c/openGL",
+    "file": "/home/arno/projects/c/openGL/src/glad.c",
+    "output": "/home/arno/projects/c/openGL/render"
+  }
+]
