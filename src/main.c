@@ -124,7 +124,7 @@ int main(void) {
   // Vertex Shader + Error checking at compile
   unsigned int vertexShader;
   vertexShader = glCreateShader(GL_VERTEX_SHADER);
-  vertexShaderSource = get_shader_content("src/vertexShader.glsl");
+  vertexShaderSource = get_shader_content("shaders/vertexShader.glsl");
   glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
   glCompileShader(vertexShader);
 
@@ -137,7 +137,7 @@ int main(void) {
   // Fragment Shader
   unsigned int fragmentShader;
   fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-  fragmentShaderSource = get_shader_content("src/fragmentShader.glsl"); // Import shader
+  fragmentShaderSource = get_shader_content("shaders/dither_shader.glsl"); // Import shader
   glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
   glCompileShader(fragmentShader);
 
@@ -240,7 +240,6 @@ int main(void) {
   int temp;
   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &temp);
   while(!glfwWindowShouldClose(window)) {
-
     // input here
     processInput(window);
 
@@ -249,7 +248,35 @@ int main(void) {
     glClear(GL_COLOR_BUFFER_BIT);
 
     // activate the shader to connect the uniform
+    //glUseProgram(shaderProgram);
+
+
+    // ---------------------------
+    // Assume you already have 'shaderProgram' as your linked shader program
+
+    double mouseX, mouseY;
+    int windowWidth, windowHeight;
+
+    // Get mouse position
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    // Normalize to (0, 1) range
+    float normalizedMouseX = (float)mouseX / windowWidth;
+    float normalizedMouseY = 1.0f - (float)mouseY / windowHeight; // Flip Y!
+
+    // Get time
+    float timeValue = glfwGetTime();
+
+    // Set the uniforms
     glUseProgram(shaderProgram);
+    int mousePosLocation = glGetUniformLocation(shaderProgram, "mousePos");
+    glUniform2f(mousePosLocation, normalizedMouseX, normalizedMouseY);
+
+    int timeLocation = glGetUniformLocation(shaderProgram, "time");
+    glUniform1f(timeLocation, timeValue);
+    // --------------------------------------
+
 
 
     // render the triangle
