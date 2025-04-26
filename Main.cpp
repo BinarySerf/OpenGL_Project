@@ -37,13 +37,70 @@ const char* vertexShaderSource = "#version 330 core\n"
 
 // Fragment Shader source code
 const char* fragmentShaderSource = "#version 330 core\n"
-"in vec3 color;\n"
-"in vec2 texCoord;\n"
-"out vec4 FragColor;\n"
-"uniform sampler2D tex0;\n"
+"in vec3 color;\n"			//Read in color from vertex shader
+"in vec2 texCoord;\n"		//Read in texture coords from vertex shader
+"out vec4 FragColor;\n"		//Color output
+"uniform sampler2D tex0;\n"	//Gets texture unit
 "void main() {\n"
+//Set fragment color to the texture with the texture unit and coords
 "   FragColor = texture(tex0, texCoord);\n"
 "}\n";
+
+const char* ditheringShaderSource = R"glsl(
+#version 460 core
+
+in vec2 texCoord;
+out vec4 FragColor;
+
+uniform sampler2D tex0;
+
+// 2x2 Bayer Matrix
+float thresholdMatrix(vec2 pos)
+{
+    int x = int(mod(pos.x, 2.0));
+    int y = int(mod(pos.y, 2.0));
+    
+    float thresholds[2][2] = float[2][2](
+        float[2](0.25, 0.75),
+        float[2](1.00, 0.50)
+    );
+    
+    return thresholds[y][x];
+}
+
+void main()
+{
+    vec4 color = texture(tex0, texCoord);
+    vec2 fragCoord = gl_FragCoord.xy;
+    float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+    float threshold = thresholdMatrix(fragCoord);
+    float finalColor = brightness > threshold ? 1.0 : 0.0;
+    FragColor = vec4(vec3(finalColor), 1.0);
+}
+)glsl";
+
+const char* rippleShaderSource = R"glsl(
+#version 460 core
+
+in vec2 texCoord;
+in vec3 color;
+out vec4 FragColor;
+
+uniform sampler2D tex0;   
+uniform vec2 mousePos;        
+uniform float time;
+
+void main()
+{
+    vec2 uv = texCoord;
+    float dist = distance(uv, mousePos);
+    float ripple = sin(30.0 * dist - time * 5.0) * 2;
+    ripple *= exp(-10.0 * dist);
+    vec2 offset = normalize(uv - mousePos) * ripple * 0.02;
+    vec2 finalUV = uv + offset;
+    FragColor = texture(tex0, finalUV);
+}
+)glsl";
 
 //Initialize shape coords, color coords, and texture coords of the object
 GLfloat vertices[] =
@@ -66,11 +123,18 @@ GLuint indices[] =
 	3, 0, 4
 };
 
+//Shader Compilation function
 GLuint compileShader(GLenum type, const char* source) {
+
+	//Create shader
 	GLuint shader = glCreateShader(type);
+	
+	//Attatch fragment or vertex shader source code
 	glShaderSource(shader, 1, &source, NULL);
+	//Compile shader
 	glCompileShader(shader);
 
+	//Check for compilation success
 	int success;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 
@@ -83,41 +147,68 @@ GLuint compileShader(GLenum type, const char* source) {
 	return shader;
 }
 
+//Create the shader program
 GLuint createShaderProgram(const char* vertSource, const char* fragSource) {
+	//Compile vertex shader
 	GLuint vertex = compileShader(GL_VERTEX_SHADER, vertSource);
+	//Compile fragment shader
 	GLuint fragment = compileShader(GL_FRAGMENT_SHADER, fragSource);
-	GLuint program = glCreateProgram();
-	glAttachShader(program, vertex);
-	glAttachShader(program, fragment);
-	glLinkProgram(program);
+
+	//Create shader program
+	GLuint shaderProgram = glCreateProgram();
+
+	//Attach shaders
+	glAttachShader(shaderProgram, vertex);
+	glAttachShader(shaderProgram, fragment);
+
+	//Link shaders
+	glLinkProgram(shaderProgram);
+
+	//Delete shaders once they are linked in the program
 	glDeleteShader(vertex);
 	glDeleteShader(fragment);
-	return program;
+
+	return shaderProgram;
 }
 
+//Create a texture from a given file
 GLuint createTexture(const char* filename) {
+	//OpenGL and stb load images opposite to each other, so we have to flip image vertically
 	stbi_set_flip_vertically_on_load(true);
-	int width, height, channels;
-	unsigned char* data = stbi_load(filename, &width, &height, &channels, STBI_rgb_alpha);
 
+	//Store width, height, and number of color channels of image
+	int width, height, channels;
+	//Store the actual image
+	unsigned char* bytes = stbi_load(filename, &width, &height, &channels, STBI_rgb_alpha);
+	//Create unsigned int for texture
 	GLuint tex;
+
+	//Generate texture object
 	glGenTextures(1, &tex);
+	//Bind texture (Binding is essentially just setting the object as a global variable so that it can be modified)
 	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+	//Attatch texture image to bound object with texture target, mipmap level, texture format, width, height, legacy 0, source image format and datatype, and the actual image data)
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bytes);
+	//Mipmaps are smaller sized renderings of an image so that it can be viewed from far away
 	glGenerateMipmap(GL_TEXTURE_2D);
 
+	//Set texture wrapping
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	//Set texture filtering
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	stbi_image_free(data);
+	//Free image memory and return
+	stbi_image_free(bytes);
 	return tex;
 }
 
 int main() 
 {
-	//GLFW initialization
+	//GLFW initialization (GLFW is a library for creating windows and contexts)
 	glfwInit();
 
 	//I'm using openGL version 3.3, so we set GLFW context versions to 3
@@ -141,41 +232,55 @@ int main()
 	//Use the window
 	glfwMakeContextCurrent(window);
 
-	//GLAD initialization
+	//GLAD initialization (GLAD is a library that provides function pointers for openGL)
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
 	//Set viewport to start from x,y = 0 to x = width, y = height
 	glViewport(0, 0, width, height);
 
-	//Create shaderProgram with vertex and fragment shaders
-	GLuint shader = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+	//Create shader programs with vertex and fragment shaders
+	GLuint baseShader = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+	GLuint ditheringShader = createShaderProgram(vertexShaderSource, ditheringShaderSource);
+	GLuint rippleShader = createShaderProgram(vertexShaderSource, rippleShaderSource);
 
+	int activeShader = 0;  // 0 = basic, 1 = dithering, 2 = ripple
+
+	//Create unsigned int for VAO, VBO, and EBO
+	// EBO (Elements buffer object) stores a large amount of data on indices
+	// VBO (Vertex Buffer Object) stores a large amount of data on vertices
+	//VAO (Vertex array object) acts as a middleman between the shader program and buffer objects by storing pointers to the vertex/index data)
 	GLuint VAO, VBO, EBO;
+
+	//Generate VAO
 	glGenVertexArrays(1, &VAO);
+	//Generate VBO
 	glGenBuffers(1, &VBO);
+	//Generate EBO
 	glGenBuffers(1, &EBO);
 
+	//Bind VAO
 	glBindVertexArray(VAO);
-
+	//Bind VBO & initialize it with vertex data
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
+	//Bind EBO & initialize it with index data
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	//Links VBO attributes to VAO
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); //Position
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); //Color
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); //Texture coords
 	glEnableVertexAttribArray(2);
 
 
 	//Texture initialization
 	GLuint texture = createTexture("kirby.jpg");
-	glUseProgram(shader);
-	glUniform1i(glGetUniformLocation(shader, "tex0"), 0);
+	glUseProgram(activeShader);
+	glUniform1i(glGetUniformLocation(activeShader, "tex0"), 0);
 
 
 	//Rotation Variables (We don't need to make the pyramid/square spin in the final version)
@@ -185,13 +290,36 @@ int main()
 	//Enable depth buffer
 	glEnable(GL_DEPTH_TEST);
 	
+
+
+
+
+
 	//While loop that keeps the window running until it's closed
 	while (!glfwWindowShouldClose(window))
 	{
+
+		if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+			activeShader = 0;
+		if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+			activeShader = 1;
+		if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+			activeShader = 2;
+
+
 		//Create background color
 		glClearColor(0.07f, 0.2f, 0.07f, 1.0f);
 		//Clear color and depth buffers
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+		GLuint shader = baseShader;
+		if (activeShader == 1)
+			shader = ditheringShader;
+		else if (activeShader == 2)
+			shader = rippleShader;
+
+
 		//Use shader program
 		glUseProgram(shader);
 
@@ -202,6 +330,7 @@ int main()
 			rotation += 0.5f;
 			prevTime = currTime;
 		}
+
 
 		//Initialize matrices
 		glm::mat4 model = glm::mat4(1.0f);
@@ -243,7 +372,9 @@ int main()
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
 	glDeleteBuffers(1, &EBO);
-	glDeleteProgram(shader);
+	glDeleteProgram(baseShader);
+	glDeleteProgram(ditheringShader);
+	glDeleteProgram(rippleShader);
 
 	//Delete window and terminate glfw before ending program
 	glfwDestroyWindow(window);
