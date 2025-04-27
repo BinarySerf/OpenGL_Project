@@ -71,12 +71,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>C:\Users\warei\OneDrive\Desktop\Comp Sci\OpenGL_Test\Libraries\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\warei\OneDrive\Desktop\Comp Sci\OpenGL_Test\Libraries\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Users\raj28\source\repos\Final-CMPSC311-Project\Libraries\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\raj28\source\repos\Final-CMPSC311-Project\Libraries\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\warei\OneDrive\Desktop\Comp Sci\OpenGL_Test\Libraries\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\warei\OneDrive\Desktop\Comp Sci\OpenGL_Test\Libraries\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Users\raj28\source\repos\Final-CMPSC311-Project\Libraries\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\raj28\source\repos\Final-CMPSC311-Project\Libraries\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

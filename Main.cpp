@@ -46,6 +46,8 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "   FragColor = texture(tex0, texCoord);\n"
 "}\n";
 
+
+//dithering Shader source code
 const char* ditheringShaderSource = R"glsl(
 #version 460 core
 
@@ -91,6 +93,7 @@ void main()
 }
 )glsl";
 
+//raindow Shader source code
 const char* rainbowShaderSource = R"glsl(
 #version 460 core
 
@@ -113,7 +116,7 @@ void main()
 }
 )glsl";
 
-
+//crt Shader Source code
 const char* crtShaderSource = R"glsl(
 #version 460 core
 
@@ -158,12 +161,12 @@ GLuint indices[] =
 
 
 
-//declare variables
+//declare variables for camera
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 position = glm::vec3(0.0f, 0.0f, 2.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-bool firstMouse = true;
+bool Mouse = true;
 float lastX = 400.0f, lastY = 400.0f;
 float yaw = -90.0f;
 float pitch = 0.0f;
@@ -267,7 +270,7 @@ GLuint createTexture(const char* filename) {
 
 
 
-void processInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFront, glm::vec3& cameraUp, float deltaTime)
+void keyboardInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFront, glm::vec3& cameraUp, float deltaTime)
 {
 	const float cameraSpeed = 2.5f * deltaTime; // adjust accordingly
 
@@ -318,42 +321,47 @@ void processInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFro
 		if (!mouseLocked)
 		{
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-			firstMouse = true; // to avoid sudden jump
+			Mouse = true;
 			mouseLocked = true;
 		}
 	}
 
 }
 
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+void mouseMovement(GLFWwindow* window, double xpos, double ypos)
 {
 
-
-	if (firstMouse)
+	//avoid mouse jump
+	if (Mouse)
 	{
 		lastX = xpos;
 		lastY = ypos;
-		firstMouse = false;
+		Mouse = false;
 
 	}
 
+	//change based on mouse movement
 	float xoffset = xpos - lastX;
 	float yoffset = lastY - ypos;
 	lastX = xpos;
 	lastY = ypos;
 
-	float sensitivity = 0.1f;
+	//changing the amount of time 
+	float sensitivity = 0.01f;
 	xoffset *= sensitivity;
 	yoffset *= sensitivity;
 
+	//updating the x and y values
 	yaw += xoffset;
 	pitch += yoffset;
 
+	//restricting the y axis
 	if (pitch > 89.0f)
 		pitch = 89.0f;
 	if (pitch < -89.0f)
 		pitch = -89.0f;
 
+	//freeform
 	if (keyboard) {
 		glm::vec3 direction;
 		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
@@ -364,13 +372,16 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
 }
 
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+void scrollInput(GLFWwindow* window, double xoffset, double yoffset)
 {
+	//be able to zoom back and forth using scroll
 	fov -= (float)yoffset;
+
+	//zooming restrictions
 	if (fov < 1.0f)
 		fov = 1.0f;
-	if (fov > 45.0f)
-		fov = 45.0f;
+	if (fov > 35.0f)
+		fov = 35.0f;
 }
 
 
@@ -405,9 +416,9 @@ int main()
 
 
 
-	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetCursorPosCallback(window, mouseMovement);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetScrollCallback(window, scrollInput);
 
 
 
@@ -470,8 +481,8 @@ int main()
 
 	//Declare camera variables
 
-	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
+	glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 cameraDirection = glm::normalize(position - target);
 
 
 
@@ -491,10 +502,8 @@ int main()
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
-		//Call the processInput function
-		processInput(window, cameraPos, cameraFront, cameraUp, deltaTime);
-
-
+		//Call the keyboardInput function
+		keyboardInput(window, position, cameraFront, cameraUp, deltaTime);
 
 		//Set keybinds for shaders (1 = base), (2 = Dithering), (3 = Ripple)
 		if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
@@ -542,8 +551,7 @@ int main()
 		glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
 
 		cameraUp = glm::cross(cameraDirection, cameraRight);
-
-		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		view = glm::lookAt(position, position + cameraFront, cameraUp);
 
 
 
