@@ -57,6 +57,9 @@ uniform sampler2D tex0;
 // 2x2 Bayer Matrix
 float thresholdMatrix(vec2 pos)
 {
+	// Pattern:
+    // [ 0.25, 0.75 ]
+    // [ 1.00, 0.50 ]
     int x = int(mod(pos.x, 2.0));
     int y = int(mod(pos.y, 2.0));
     
@@ -71,10 +74,19 @@ float thresholdMatrix(vec2 pos)
 void main()
 {
     vec4 color = texture(tex0, texCoord);
+
+	// Get fragment position
     vec2 fragCoord = gl_FragCoord.xy;
+
+	// Calculate brightness
     float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+
+	// Lookup threshold
     float threshold = thresholdMatrix(fragCoord);
+
+	// Compare brightness to threshold
     float finalColor = brightness > threshold ? 1.0 : 0.0;
+	
     FragColor = vec4(vec3(finalColor), 1.0);
 }
 )glsl";
@@ -87,17 +99,26 @@ in vec3 color;
 out vec4 FragColor;
 
 uniform sampler2D tex0;   
-uniform vec2 mousePos;        
+uniform vec2 mousePos;			// Mouse pos (normalized 0-1)  
 uniform float time;
 
 void main()
 {
     vec2 uv = texCoord;
+
+    // Distance from mouse to this fragment
     float dist = distance(uv, mousePos);
+
+    // Ripple effect: a sine wave expanding outward from the mouse
     float ripple = sin(30.0 * dist - time * 5.0) * 2;
+
+    // Make ripple stronger near mouse, fade away further
     ripple *= exp(-10.0 * dist);
+
+    // Distort the UV based on the ripple
     vec2 offset = normalize(uv - mousePos) * ripple * 0.02;
     vec2 finalUV = uv + offset;
+
     FragColor = texture(tex0, finalUV);
 }
 )glsl";
@@ -123,12 +144,37 @@ GLuint indices[] =
 	3, 0, 4
 };
 
+
+
+
+//declare variables
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+bool firstMouse = true;
+float lastX = 400.0f, lastY = 400.0f;
+float yaw = -90.0f;
+float pitch = 0.0f;
+
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+float fov = 35.0f;
+
+bool mouseLocked = true;
+bool keyboard = true;
+
+
+
+
+
 //Shader Compilation function
 GLuint compileShader(GLenum type, const char* source) {
 
 	//Create shader
 	GLuint shader = glCreateShader(type);
-	
+
 	//Attatch fragment or vertex shader source code
 	glShaderSource(shader, 1, &source, NULL);
 	//Compile shader
@@ -206,7 +252,121 @@ GLuint createTexture(const char* filename) {
 	return tex;
 }
 
-int main() 
+
+
+
+
+void processInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFront, glm::vec3& cameraUp, float deltaTime)
+{
+	const float cameraSpeed = 2.5f * deltaTime; // adjust accordingly
+
+	//toggle between freeform cam and locked cam
+	if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS)
+	{
+		keyboard = true;
+	}
+	if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS)
+	{
+		keyboard = false;
+	}
+
+	//WASD inputs
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		if (keyboard) {
+			cameraPos += cameraSpeed * cameraFront;
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		if (keyboard) {
+			cameraPos -= cameraSpeed * cameraFront;
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+		if (keyboard) {
+			cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+		if (keyboard) {
+			cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+		}
+	}
+
+	//remove cursor from window
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	{
+		if (mouseLocked)
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			mouseLocked = false;
+		}
+	}
+	//use cursor in window
+	if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS)
+	{
+		if (!mouseLocked)
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			firstMouse = true; // to avoid sudden jump
+			mouseLocked = true;
+		}
+	}
+
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+
+
+	if (firstMouse)
+	{
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+
+	}
+
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos;
+	lastX = xpos;
+	lastY = ypos;
+
+	float sensitivity = 0.1f;
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	if (pitch > 89.0f)
+		pitch = 89.0f;
+	if (pitch < -89.0f)
+		pitch = -89.0f;
+
+	if (keyboard) {
+		glm::vec3 direction;
+		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+		direction.y = sin(glm::radians(pitch));
+		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		cameraFront = glm::normalize(direction);
+	}
+
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	fov -= (float)yoffset;
+	if (fov < 1.0f)
+		fov = 1.0f;
+	if (fov > 45.0f)
+		fov = 45.0f;
+}
+
+
+
+
+
+int main()
 {
 	//GLFW initialization (GLFW is a library for creating windows and contexts)
 	glfwInit();
@@ -231,6 +391,14 @@ int main()
 	}
 	//Use the window
 	glfwMakeContextCurrent(window);
+
+
+
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetScrollCallback(window, scroll_callback);
+
+
 
 	//GLAD initialization (GLAD is a library that provides function pointers for openGL)
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
@@ -260,6 +428,7 @@ int main()
 
 	//Bind VAO
 	glBindVertexArray(VAO);
+
 	//Bind VBO & initialize it with vertex data
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -279,18 +448,25 @@ int main()
 
 	//Texture initialization
 	GLuint texture = createTexture("kirby.jpg");
-	glUseProgram(activeShader);
-	glUniform1i(glGetUniformLocation(activeShader, "tex0"), 0);
-
-
-	//Rotation Variables (We don't need to make the pyramid/square spin in the final version)
-	float rotation = 0.0f;
-	double prevTime = glfwGetTime();
+	glUseProgram(baseShader);
+	glUniform1i(glGetUniformLocation(baseShader, "tex0"), 0);
 
 	//Enable depth buffer
 	glEnable(GL_DEPTH_TEST);
-	
 
+
+
+	//Declare camera variables
+
+	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
+
+
+
+	//Initialize matrices
+	glm::mat4 model = glm::mat4(1.0f);
+	glm::mat4 view = glm::mat4(1.0f);
+	glm::mat4 proj = glm::mat4(1.0f);
 
 
 
@@ -299,6 +475,16 @@ int main()
 	while (!glfwWindowShouldClose(window))
 	{
 
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
+		//Call the processInput function
+		processInput(window, cameraPos, cameraFront, cameraUp, deltaTime);
+
+
+
+		//Set keybinds for shaders (1 = base), (2 = Dithering), (3 = Ripple)
 		if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
 			activeShader = 0;
 		if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
@@ -306,13 +492,7 @@ int main()
 		if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
 			activeShader = 2;
 
-
-		//Create background color
-		glClearColor(0.07f, 0.2f, 0.07f, 1.0f);
-		//Clear color and depth buffers
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
+		//Set base shader as the default case, and switch shader program based on active shader value
 		GLuint shader = baseShader;
 		if (activeShader == 1)
 			shader = ditheringShader;
@@ -320,27 +500,38 @@ int main()
 			shader = rippleShader;
 
 
+		//Create background color
+		glClearColor(1.0f, 0.65f, 0.75f, 1.0f);
+		//Clear color and depth buffers
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		
+
+
 		//Use shader program
 		glUseProgram(shader);
 
-		//Timer function
-		double currTime = glfwGetTime();
-		if (currTime - prevTime >= 1.0 / 60.0)
-		{
-			rotation += 0.5f;
-			prevTime = currTime;
-		}
 
 
-		//Initialize matrices
-		glm::mat4 model = glm::mat4(1.0f);
-		glm::mat4 view = glm::mat4(1.0f);
-		glm::mat4 proj = glm::mat4(1.0f);
+
+		model = glm::mat4(1.0f);
+
+		glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
+
+		cameraUp = glm::cross(cameraDirection, cameraRight);
+
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+
+
 
 		//Assign matrix transformations
-		model = glm::rotate(model, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(pitch), glm::vec3(1.0f, 0.0f, 0.0f));
 		view = glm::translate(view, glm::vec3(0.0f, -0.5f, -2.0f));
-		proj = glm::perspective(glm::radians(45.0f), (float)(width / height), 0.1f, 100.0f);
+		proj = glm::perspective(glm::radians(fov), (float)(width / height), 0.1f, 100.0f);
+
 
 		//Outputs matrices to vertex shader
 		int modelLoc = glGetUniformLocation(shader, "model");
@@ -360,7 +551,7 @@ int main()
 		glBindVertexArray(VAO);
 
 		// Draw primitives, number of indices, datatype of indices, index of indices
-		glDrawElements(GL_TRIANGLES, sizeof(indices)/sizeof(int), GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(int), GL_UNSIGNED_INT, 0);
 		//Swap front and back buffers
 		glfwSwapBuffers(window);
 		//Check for events and update window
