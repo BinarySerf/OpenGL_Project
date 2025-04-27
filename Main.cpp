@@ -105,9 +105,9 @@ void main()
     vec4 color = texture(ourTexture, texCoord);
 
     // Create moving color waves based on time and position
-    float r = 0.5 + 0.5 * sin(time + texCoord.x * 10.0);
-    float g = 0.5 + 0.5 * sin(time + texCoord.y * 10.0);
-    float b = 0.5 + 0.5 * sin(time + (texCoord.x + texCoord.y) * 10.0);
+    float r = 0.5 + 0.5 * sin(time + texCoord.x * 1.0);
+    float g = 0.5 + 0.5 * sin(time + texCoord.y * 1.0);
+    float b = 0.5 + 0.5 * sin(time + (texCoord.x + texCoord.y) * 1.0);
 
     FragColor = vec4(r, g, b, 1.0) * color;
 }
@@ -125,7 +125,7 @@ uniform sampler2D ourTexture;
 
 void main()
 {
-    float line = sin(texCoord.y * 300.0 + time * 10.0) * 0.25;
+    float line = sin(texCoord.y * 60.0 + time * 10.0) * 0.25;
 
     vec4 color = texture(ourTexture, texCoord);
 
@@ -527,6 +527,12 @@ int main()
 		//Use shader program
 		glUseProgram(shader);
 
+
+		// Send time to the shader (if it has one)
+		int timeLoc = glGetUniformLocation(shader, "time");
+		if (timeLoc != -1) {
+			glUniform1f(timeLoc, glfwGetTime());
+		}
 
 
 
