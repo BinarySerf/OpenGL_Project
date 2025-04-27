@@ -17,28 +17,6 @@
 const unsigned int width = 800;
 const unsigned int height = 800;
 
-
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-bool firstMouse = true;
-float lastX = 400.0f, lastY = 400.0f;
-float yaw = -90.0f;
-float pitch = 0.0f;
-
-
-//time
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
-
-float fov = 35.0f;
-
-bool mouseLocked = true;
-
-
-
-
 //Initialize shape coords, color coords, and texture coords of the object
 GLfloat vertices[] =
 { //     COORDINATES         /           COLORS             /    TexCoord    //
@@ -60,83 +38,6 @@ GLuint indices[] =
 	3, 0, 4
 };
 
-void processInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFront, glm::vec3& cameraUp, float deltaTime)
-{
-	const float cameraSpeed = 0.005f * deltaTime; // adjust accordingly
-
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-	{
-		if (mouseLocked)
-		{
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			mouseLocked = false;
-		}
-	}
-	if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS)
-	{
-		if (!mouseLocked)
-		{
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-			firstMouse = true; // to avoid sudden jump
-			mouseLocked = true;
-		}
-	}
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		cameraPos += cameraSpeed * cameraFront;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		cameraPos -= cameraSpeed * cameraFront;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-}
-
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-	
-
-	if (firstMouse)
-	{
-		std::cout << firstMouse << std::endl;
-		lastX = xpos;
-		lastY = ypos;
-		firstMouse = false;
-		
-	}
-
-	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos;
-	lastX = xpos;
-	lastY = ypos;
-
-	float sensitivity = 0.1f;
-	xoffset *= sensitivity;
-	yoffset *= sensitivity;
-
-	yaw += xoffset;
-	pitch += yoffset;
-
-	if (pitch > 89.0f)
-		pitch = 89.0f;
-	if (pitch < -89.0f)
-		pitch = -89.0f;
-
-	/*glm::vec3 direction;
-	direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-	direction.y = sin(glm::radians(pitch));
-	direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));*/
-	//cameraFront = glm::normalize(direction);
-}
-
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-	fov -= (float)yoffset;
-	if (fov < 1.0f)
-		fov = 1.0f;
-	if (fov > 45.0f)
-		fov = 45.0f;
-}
-
 
 int main()
 {
@@ -153,6 +54,9 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
+	//Create Camera object
+	Camera controls;
+
 	//Create window
 	GLFWwindow* window = glfwCreateWindow(width, height, "OpenGL_Test", NULL, NULL);
 
@@ -166,9 +70,11 @@ int main()
 	//Use the window
 	glfwMakeContextCurrent(window);
 
-	glfwSetCursorPosCallback(window, mouse_callback);
+	
+
+	glfwSetCursorPosCallback(window, controls.mouse_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetScrollCallback(window, controls.scroll_callback);
 
 
 	//GLAD initialization
@@ -247,7 +153,7 @@ int main()
 
 
 		//Call the processInput function
-		processInput(window, cameraPos, cameraFront, cameraUp, deltaTime);
+		controls.processInput(window, cameraPos, cameraFront, cameraUp, deltaTime);
 		//Create background color
 		glClearColor(0.07f, 0.2f, 0.07f, 1.0f);
 		//Clear color and depth buffers

@@ -1,5 +1,5 @@
-#ifndef Camera_CLASS_H
-#define Camera_CLASS_H
+#ifndef CAMERA_CLASS_H
+#define CAMERA_CLASS_H
 
 #include<glad/glad.h>
 #include<string>
@@ -7,38 +7,24 @@
 #include<sstream>
 #include<iostream>
 #include<cerrno>
+#include<glm/glm.hpp>
+#include<GLFW/glfw3.h>
 
-class {
-	void processInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFront, glm::vec3& cameraUp, float deltaTime)
-	{
-		const float cameraSpeed = 0.005f * deltaTime; // adjust accordingly
+//Global variables
+extern glm::vec3 cameraFront;
+extern glm::vec3 cameraPos;
+extern glm::vec3 cameraUp;
+extern bool firstMouse, mouseLocked, keyboard;
+extern float lastX, lastY, yaw, pitch, deltaTime, lastFrame, fov;
 
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-		{
-			if (mouseLocked)
-			{
-				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-				mouseLocked = false;
-			}
-		}
-		if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS)
-		{
-			if (!mouseLocked)
-			{
-				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-				firstMouse = true; // to avoid sudden jump
-				mouseLocked = true;
-			}
-		}
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-			cameraPos += cameraSpeed * cameraFront;
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-			cameraPos -= cameraSpeed * cameraFront;
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-			cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-			cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	}
+class Camera{
+public:
+	//input for WASD and other keyboard functions
+	static void processInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFront, glm::vec3& cameraUp, float deltaTime);
+	//mouse inputs
+	static void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+	//zoom
+	static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 };
 
