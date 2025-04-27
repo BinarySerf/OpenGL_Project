@@ -11,19 +11,42 @@
 #include"VAO.h"
 #include"VBO.h"
 #include"EBO.h"
+#include"Camera.h"
 
 //Set width and height for the window
 const unsigned int width = 800;
 const unsigned int height = 800;
 
+
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+bool firstMouse = true;
+float lastX = 400.0f, lastY = 400.0f;
+float yaw = -90.0f;
+float pitch = 0.0f;
+
+
+//time
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+float fov = 35.0f;
+
+bool mouseLocked = true;
+
+
+
+
 //Initialize shape coords, color coords, and texture coords of the object
 GLfloat vertices[] =
-{ //     COORDINATES     /        COLORS         /   TexCoord  //
-	-0.5f, 0.0f,  0.5f,     0.83f, 0.70f, 0.44f,	0.0f, 0.0f,
-	-0.5f, 0.0f, -0.5f,     0.83f, 0.70f, 0.44f,	5.0f, 0.0f,
-	 0.5f, 0.0f, -0.5f,     0.83f, 0.70f, 0.44f,	0.0f, 0.0f,
-	 0.5f, 0.0f,  0.5f,     0.83f, 0.70f, 0.44f,	5.0f, 0.0f,
-	 0.0f, 0.8f,  0.0f,     0.92f, 0.86f, 0.76f,	2.5f, 5.0f
+{ //     COORDINATES         /           COLORS             /    TexCoord    //
+	-0.5f, 0.0f,  0.5f,      0.83f, 0.70f, 0.44f,    0.0f, 0.0f,
+	-0.5f, 0.0f, -0.5f,      0.83f, 0.70f, 0.44f,    5.0f, 0.0f,
+	 0.5f, 0.0f, -0.5f,      0.83f, 0.70f, 0.44f,    0.0f, 0.0f,
+	 0.5f, 0.0f,  0.5f,      0.83f, 0.70f, 0.44f,    5.0f, 0.0f,
+	 0.0f, 0.8f,  0.0f,      0.92f, 0.86f, 0.76f,    2.5f, 5.0f
 };
 
 // Indices for vertex order
@@ -37,8 +60,88 @@ GLuint indices[] =
 	3, 0, 4
 };
 
-int main() 
+void processInput(GLFWwindow* window, glm::vec3& cameraPos, glm::vec3& cameraFront, glm::vec3& cameraUp, float deltaTime)
 {
+	const float cameraSpeed = 0.005f * deltaTime; // adjust accordingly
+
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	{
+		if (mouseLocked)
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			mouseLocked = false;
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS)
+	{
+		if (!mouseLocked)
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			firstMouse = true; // to avoid sudden jump
+			mouseLocked = true;
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		cameraPos += cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		cameraPos -= cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+	
+
+	if (firstMouse)
+	{
+		std::cout << firstMouse << std::endl;
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+		
+	}
+
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos;
+	lastX = xpos;
+	lastY = ypos;
+
+	float sensitivity = 0.1f;
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	if (pitch > 89.0f)
+		pitch = 89.0f;
+	if (pitch < -89.0f)
+		pitch = -89.0f;
+
+	/*glm::vec3 direction;
+	direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	direction.y = sin(glm::radians(pitch));
+	direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));*/
+	//cameraFront = glm::normalize(direction);
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	fov -= (float)yoffset;
+	if (fov < 1.0f)
+		fov = 1.0f;
+	if (fov > 45.0f)
+		fov = 45.0f;
+}
+
+
+int main()
+{
+
+	
 	//GLFW initialization
 	glfwInit();
 
@@ -63,8 +166,17 @@ int main()
 	//Use the window
 	glfwMakeContextCurrent(window);
 
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetScrollCallback(window, scroll_callback);
+
+
 	//GLAD initialization
-	gladLoadGL();
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		std::cout << "Failed to initialize GLAD" << std::endl;
+		return -1;
+	}
 
 	//Set viewport to start from x,y = 0 to x = width, y = height
 	glViewport(0, 0, width, height);
@@ -104,38 +216,65 @@ int main()
 
 	//Rotation Variables (We don't need to make the pyramid/square spin in the final version)
 	float rotation = 0.0f;
-	double prevTime = glfwGetTime();
+	
+	
 
 	//Enable depth buffer
 	glEnable(GL_DEPTH_TEST);
+
+	//Declare camera variables
 	
+	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
+
+
+
+	//Initialize matrices
+	glm::mat4 model = glm::mat4(1.0f);
+	glm::mat4 view = glm::mat4(1.0f);
+	glm::mat4 proj = glm::mat4(1.0f);
+
+	
+	
+	
+
 	//While loop that keeps the window running until it's closed
 	while (!glfwWindowShouldClose(window))
 	{
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
+
+		//Call the processInput function
+		processInput(window, cameraPos, cameraFront, cameraUp, deltaTime);
 		//Create background color
 		glClearColor(0.07f, 0.2f, 0.07f, 1.0f);
 		//Clear color and depth buffers
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//Use shader program
 		shaderProgram.Activate();
+		
 
-		//Timer function
-		double currTime = glfwGetTime();
-		if (currTime - prevTime >= 1 / 60)
-		{
-			rotation += 0.5f;
-			prevTime = currTime;
-		}
 
-		//Initialize matrices
-		glm::mat4 model = glm::mat4(1.0f);
-		glm::mat4 view = glm::mat4(1.0f);
-		glm::mat4 proj = glm::mat4(1.0f);
+
+		model = glm::mat4(1.0f);
+
+		glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
+
+		cameraUp = glm::cross(cameraDirection, cameraRight);
+
+		view = glm::lookAt(cameraPos, cameraPos+cameraFront, cameraUp);
+
+
 
 		//Assign matrix transformations
-		model = glm::rotate(model, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+		//model = glm::rotate(model, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(pitch), glm::vec3(1.0f, 0.0f, 0.0f));
 		view = glm::translate(view, glm::vec3(0.0f, -0.5f, -2.0f));
-		proj = glm::perspective(glm::radians(45.0f), (float)(width / height), 0.1f, 100.0f);
+		proj = glm::perspective(glm::radians(fov), (float)(width / height), 0.1f, 100.0f);
 
 		//Outputs matrices to vertex shader
 		int modelLoc = glGetUniformLocation(shaderProgram.ID, "model");
@@ -152,7 +291,7 @@ int main()
 		//Bind VAO
 		VAO1.Bind();
 		// Draw primitives, number of indices, datatype of indices, index of indices
-		glDrawElements(GL_TRIANGLES, sizeof(indices)/sizeof(int), GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(int), GL_UNSIGNED_INT, 0);
 		//Swap front and back buffers
 		glfwSwapBuffers(window);
 		//Check for events and update window
