@@ -91,35 +91,46 @@ void main()
 }
 )glsl";
 
-const char* rippleShaderSource = R"glsl(
+const char* rainbowShaderSource = R"glsl(
 #version 460 core
 
 in vec2 texCoord;
-in vec3 color;
 out vec4 FragColor;
 
-uniform sampler2D tex0;   
-uniform vec2 mousePos;			// Mouse pos (normalized 0-1)  
 uniform float time;
+uniform sampler2D ourTexture;
 
 void main()
 {
-    vec2 uv = texCoord;
+    vec4 color = texture(ourTexture, texCoord);
 
-    // Distance from mouse to this fragment
-    float dist = distance(uv, mousePos);
+    // Create moving color waves based on time and position
+    float r = 0.5 + 0.5 * sin(time + texCoord.x * 10.0);
+    float g = 0.5 + 0.5 * sin(time + texCoord.y * 10.0);
+    float b = 0.5 + 0.5 * sin(time + (texCoord.x + texCoord.y) * 10.0);
 
-    // Ripple effect: a sine wave expanding outward from the mouse
-    float ripple = sin(30.0 * dist - time * 5.0) * 2;
+    FragColor = vec4(r, g, b, 1.0) * color;
+}
+)glsl";
 
-    // Make ripple stronger near mouse, fade away further
-    ripple *= exp(-10.0 * dist);
 
-    // Distort the UV based on the ripple
-    vec2 offset = normalize(uv - mousePos) * ripple * 0.02;
-    vec2 finalUV = uv + offset;
+const char* crtShaderSource = R"glsl(
+#version 460 core
 
-    FragColor = texture(tex0, finalUV);
+in vec2 texCoord;
+out vec4 FragColor;
+
+uniform float time;
+uniform sampler2D ourTexture;
+
+void main()
+{
+    float line = sin(texCoord.y * 300.0 + time * 10.0) * 0.25;
+
+    vec4 color = texture(ourTexture, texCoord);
+
+
+    FragColor = vec4(vec3(0.5 + line, 0.8 + line * 2, 0.5 + line), 1.0) * color;
 }
 )glsl";
 
@@ -409,7 +420,8 @@ int main()
 	//Create shader programs with vertex and fragment shaders
 	GLuint baseShader = createShaderProgram(vertexShaderSource, fragmentShaderSource);
 	GLuint ditheringShader = createShaderProgram(vertexShaderSource, ditheringShaderSource);
-	GLuint rippleShader = createShaderProgram(vertexShaderSource, rippleShaderSource);
+	GLuint rainbowShader = createShaderProgram(vertexShaderSource, rainbowShaderSource);
+	GLuint crtShader = createShaderProgram(vertexShaderSource, crtShaderSource);
 
 	int activeShader = 0;  // 0 = basic, 1 = dithering, 2 = ripple
 
@@ -491,13 +503,17 @@ int main()
 			activeShader = 1;
 		if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
 			activeShader = 2;
+		if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+			activeShader = 3;
 
 		//Set base shader as the default case, and switch shader program based on active shader value
 		GLuint shader = baseShader;
 		if (activeShader == 1)
 			shader = ditheringShader;
 		else if (activeShader == 2)
-			shader = rippleShader;
+			shader = rainbowShader;
+		else if (activeShader == 3)
+			shader = crtShader;
 
 
 		//Create background color
@@ -565,7 +581,8 @@ int main()
 	glDeleteBuffers(1, &EBO);
 	glDeleteProgram(baseShader);
 	glDeleteProgram(ditheringShader);
-	glDeleteProgram(rippleShader);
+	glDeleteProgram(rainbowShader);
+	glDeleteProgram(crtShader);
 
 	//Delete window and terminate glfw before ending program
 	glfwDestroyWindow(window);
